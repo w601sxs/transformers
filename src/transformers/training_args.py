@@ -223,7 +223,7 @@ class TrainingArguments:
             If set to a positive number, the total number of training steps to perform. Overrides `num_train_epochs`.
             In case of using a finite iterable dataset the training may stop before reaching the set number of steps
             when all data is exhausted
-        lr_scheduler_type (`str` or [`SchedulerType`], *optional*, defaults to `"linear"`):
+        lr_ (`str` or [`SchedulerType`], *optional*, defaults to `"linear"`):
             The scheduler type to use. See the documentation of [`SchedulerType`] for all possible values.
         warmup_ratio (`float`, *optional*, defaults to 0.0):
             Ratio of total training steps used for a linear warmup from 0 to `learning_rate`.
@@ -675,6 +675,15 @@ class TrainingArguments:
         default=0.0, metadata={"help": "Linear warmup over warmup_ratio fraction of total steps."}
     )
     warmup_steps: int = field(default=0, metadata={"help": "Linear warmup over warmup_steps."})
+    
+    patience: int = field(default=10, metadata={"help": "GreedyLR scheduler patience value"})
+    
+    smooth: bool = field(default=False, metadata={"help": "GreedyLR scheduler smoothing on/off"})
+    
+    min_lr: float = field(default=1e-3, metadata={"help": "GreedyLR scheduler min_lr value"})
+    
+    factor: float = field(default=0.99, metadata={"help": "GreedyLR scheduler factor value"})
+    
 
     log_level: Optional[str] = field(
         default="passive",
@@ -2364,6 +2373,10 @@ class TrainingArguments:
         self.max_steps = max_steps
         self.warmup_ratio = warmup_ratio
         self.warmup_steps = warmup_steps
+        self.patience = patience
+        self.smooth = smooth
+        self.min_lr = min_lr
+        self.factor = factor
         return self
 
     def set_dataloader(

@@ -1188,12 +1188,19 @@ class Trainer:
             num_training_steps (int): The number of training steps to do.
         """
         if self.lr_scheduler is None:
-            self.lr_scheduler = get_scheduler(
+            
+            if self.args.lr_scheduler_type == 'greedy':
+                self.lr_scheduler = get_scheduler(
+                self.args.lr_scheduler_type,
+                optimizer=self.optimizer if optimizer is None else optimizer,
+                patience=self.args.patience, smooth=self.args.smooth, min_lr=self.args.min_lr, factor=self.args.factor)
+            else:
+                self.lr_scheduler = get_scheduler(
                 self.args.lr_scheduler_type,
                 optimizer=self.optimizer if optimizer is None else optimizer,
                 num_warmup_steps=self.args.get_warmup_steps(num_training_steps),
-                num_training_steps=num_training_steps,
-            )
+                num_training_steps=num_training_steps,)
+                
         return self.lr_scheduler
 
     def num_examples(self, dataloader: DataLoader) -> int:
@@ -1964,8 +1971,12 @@ class Trainer:
                     else:
                         self.optimizer.step()
 
-                    if optimizer_was_run and not self.deepspeed:
-                        self.lr_scheduler.step()
+                    
+                    if optimizer_was_run and self.args.lr_scheduler_type=='greedy':
+                        self.lr_scheduler.step(tr_loss_step) # Need to pass in a metric, assuming minimization
+                    else:
+                        if optimizer_was_run and not self.deepspeed:
+                            self.lr_scheduler.step()
 
                     model.zero_grad()
                     self.state.global_step += 1

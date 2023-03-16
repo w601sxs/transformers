@@ -23,6 +23,7 @@ import torch
 from torch import nn
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
+from .GreedyLR import *
 
 from .trainer_utils import SchedulerType
 from .utils import logging
@@ -30,6 +31,21 @@ from .utils.versions import require_version
 
 
 logger = logging.get_logger(__name__)
+
+
+def get_greedy_schedule(optimizer: Optimizer, patience=10, min_lr=1e-3, smooth=False, factor=0.99 ):
+    """
+    Create a schedule with a constant learning rate, using the learning rate set in optimizer.
+
+    Args:
+        optimizer ([`~torch.optim.Optimizer`]):
+            The optimizer for which to schedule the learning rate.
+
+    Return:
+        `GreedyLR` with the appropriate schedule.
+    """
+
+    return GreedyLR(optimizer, patience=patience, min_lr=min_lr, smooth=smooth, factor=factor )
 
 
 def get_constant_schedule(optimizer: Optimizer, last_epoch: int = -1):
@@ -309,6 +325,7 @@ TYPE_TO_SCHEDULER_FUNCTION = {
     SchedulerType.CONSTANT: get_constant_schedule,
     SchedulerType.CONSTANT_WITH_WARMUP: get_constant_schedule_with_warmup,
     SchedulerType.INVERSE_SQRT: get_inverse_sqrt_schedule,
+    SchedulerType.GREEDY: get_greedy_schedule,
 }
 
 
@@ -317,6 +334,10 @@ def get_scheduler(
     optimizer: Optimizer,
     num_warmup_steps: Optional[int] = None,
     num_training_steps: Optional[int] = None,
+    patience: Optional[int] = None,
+    min_lr: Optional[float] = None,
+    smooth: Optional[bool] = None,
+    factor: Optional[float] = None,
 ):
     """
     Unified API to get any scheduler from its name.
@@ -339,14 +360,22 @@ def get_scheduler(
         return schedule_func(optimizer)
 
     # All other schedulers require `num_warmup_steps`
-    if num_warmup_steps is None:
+    if num_warmup_steps is None and name!=SchedulerType.GREEDY:
         raise ValueError(f"{name} requires `num_warmup_steps`, please provide that argument.")
+    elif name == SchedulerType.GREEDY:
+        print(f"GreedyLR settings: patience={patience} smooth={smooth} min_lr={min_lr} factor={factor}")
+        if patience is None or min_lr is None or smooth is None:
+            raise ValueError(f"{name} requires `patience, min_lr and smooth`, please provide these arguments.")
+            
 
     if name == SchedulerType.CONSTANT_WITH_WARMUP:
         return schedule_func(optimizer, num_warmup_steps=num_warmup_steps)
 
     if name == SchedulerType.INVERSE_SQRT:
         return schedule_func(optimizer, num_warmup_steps=num_warmup_steps)
+    
+    if name == SchedulerType.GREEDY:
+        return schedule_func(optimizer, patience=patience, min_lr=min_lr, smooth=smooth, factor=factor)
 
     # All other schedulers require `num_training_steps`
     if num_training_steps is None:

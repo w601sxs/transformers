@@ -367,6 +367,7 @@ class SchedulerType(ExplicitEnum):
     CONSTANT = "constant"
     CONSTANT_WITH_WARMUP = "constant_with_warmup"
     INVERSE_SQRT = "inverse_sqrt"
+    GREEDY = "greedy"
 
 
 class TrainerMemoryTracker:
