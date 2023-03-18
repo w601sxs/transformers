@@ -21,8 +21,8 @@ class StreamingAverage:
         self.sum += value
         if len(self.values) > self.window_size:
             self.sum -= self.values.pop(0)
-        if len(self.values) <= self.window_size:
-            return value
+        if len(self.values) <= self.window_size and len(self.values)>1:
+            return float(self.sum) / len(self.values)
             
         return float(self.sum) / len(self.values)
 
@@ -86,7 +86,7 @@ class GreedyLR:
     def __init__(self, optimizer, mode='min', factor=0.95, patience=10,
                  threshold=1e-6, threshold_mode='abs', cooldown=0, warmup=0,
                  min_lr=1e-3, max_lr=1, eps=1e-8, verbose=False, smooth=False, 
-                 window_size=50, reset_start=500000):
+                 window_size=50, reset_start=500):
         
         
             
@@ -128,6 +128,7 @@ class GreedyLR:
         self.last_epoch = 0
         self.smooth = smooth
         self.reset_start = reset_start
+        self.reset_start_original = reset_start
         if self.smooth:
             self.sa = StreamingAverage(window_size)
         self._init_is_better(mode=mode, threshold=threshold,
@@ -138,7 +139,7 @@ class GreedyLR:
     def _reset(self):
         """Resets num_bad_epochs counter and cooldown counter."""
         self.best = self.mode_worse
-        
+        self.reset_start = self.reset_start_original
         self.cooldown_counter = 0
         self.num_bad_epochs = 0
         
@@ -148,6 +149,10 @@ class GreedyLR:
     def step(self, metrics, epoch=None):
         # convert `metrics` to float, in case it's a zero-dim Tensor
         current = float(metrics)
+        
+        if self.smooth:
+            current = self.sa.streamavg(current)
+        
         if epoch is None:
             epoch = self.last_epoch + 1
         else:
@@ -180,18 +185,22 @@ class GreedyLR:
             self.warmup_counter = self.warmup
             self.num_good_epochs = 0
         
-        if epoch == self.reset_start:
+        if self.reset_start == 0:
             self._reset()
             
         self._last_lr = [group['lr'] for group in self.optimizer.param_groups]
+        
+        if len(set(self._last_lr)) == 1:
+            # All at lower bound, try resetting
+            self.reset_start -= 1
+        
+
 
     def _reduce_lr(self, epoch):
         for i, param_group in enumerate(self.optimizer.param_groups):
             old_lr = float(param_group['lr'])
             new_lr = max(old_lr * self.factor, self.min_lrs[i])
             if old_lr - new_lr > self.eps:
-                if self.smooth:
-                    new_lr = self.sa.streamavg(new_lr)
                 
                 param_group['lr'] = new_lr
                 
@@ -206,8 +215,6 @@ class GreedyLR:
             old_lr = float(param_group['lr'])
             new_lr = min(old_lr / self.factor, self.max_lrs[i])
             if new_lr - old_lr > self.eps:
-                if self.smooth:
-                    new_lr = self.sa.streamavg(new_lr)
                     
                 param_group['lr'] = new_lr
                 if self.verbose:
