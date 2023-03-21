@@ -65,6 +65,36 @@ def get_constant_schedule(optimizer: Optimizer, last_epoch: int = -1):
     return LambdaLR(optimizer, lambda _: 1, last_epoch=last_epoch)
 
 
+
+def get_constant_step_schedule(optimizer: Optimizer, factor=1e-2, critical_step=-1, last_epoch: int = -1):
+    """
+    Create a schedule with a constant learning rate, which skips to another learning rate based on a factor and an epoch number; also using the learning rate set in optimizer.
+
+    Args:
+        optimizer ([`~torch.optim.Optimizer`]):
+            The optimizer for which to schedule the learning rate.
+        last_epoch (`int`, *optional*, defaults to -1):
+            The index of the last epoch when resuming training.
+        factor (`float`, *optional*, defaults to 1e-2):
+            Factor to reduce LR after the critical epoch.
+        critical_step (`int`, *optional*, defaults to -1):
+            Critical epoch to change LR.
+
+    Return:
+        `torch.optim.lr_scheduler.LambdaLR` with the appropriate schedule.
+    """
+    print(factor, critical_step)
+    lr_lambda = partial(_get_constant_step_schedule_lr_lambda, critical_step=critical_step, factor=factor)
+    return LambdaLR(optimizer, lr_lambda, last_epoch=last_epoch)
+
+
+
+def _get_constant_step_schedule_lr_lambda(current_step: int, *, critical_step: int, factor:float):
+    if current_step < critical_step:
+        return 1
+    return factor
+
+
 def _get_constant_schedule_with_warmup_lr_lambda(current_step: int, *, num_warmup_steps: int):
     if current_step < num_warmup_steps:
         return float(current_step) / float(max(1.0, num_warmup_steps))
@@ -326,6 +356,7 @@ TYPE_TO_SCHEDULER_FUNCTION = {
     SchedulerType.CONSTANT_WITH_WARMUP: get_constant_schedule_with_warmup,
     SchedulerType.INVERSE_SQRT: get_inverse_sqrt_schedule,
     SchedulerType.GREEDY: get_greedy_schedule,
+    SchedulerType.CONSTANT_STEP: get_constant_step_schedule,
 }
 
 
@@ -338,6 +369,7 @@ def get_scheduler(
     min_lr: Optional[float] = None,
     smooth: Optional[bool] = None,
     factor: Optional[float] = None,
+    critical_step: Optional[int]=None,
 ):
     """
     Unified API to get any scheduler from its name.
@@ -362,10 +394,16 @@ def get_scheduler(
     # All other schedulers require `num_warmup_steps`
     if num_warmup_steps is None and name!=SchedulerType.GREEDY:
         raise ValueError(f"{name} requires `num_warmup_steps`, please provide that argument.")
+    
     elif name == SchedulerType.GREEDY:
         print(f"GreedyLR settings: patience={patience} smooth={smooth} min_lr={min_lr} factor={factor}")
         if patience is None or min_lr is None or smooth is None:
             raise ValueError(f"{name} requires `patience, min_lr and smooth`, please provide these arguments.")
+    
+    elif name == SchedulerType.CONSTANT_STEP:
+        print(f"Constant step settings: factor={factor} critical_step={critical_step}")
+        if factor is None or critical_step is None:
+            raise ValueError(f"{name} requires `factor and critical_step`, please provide these arguments. Values given are {factor} and {critical_step}")
             
 
     if name == SchedulerType.CONSTANT_WITH_WARMUP:
@@ -376,6 +414,9 @@ def get_scheduler(
     
     if name == SchedulerType.GREEDY:
         return schedule_func(optimizer, patience=patience, min_lr=min_lr, smooth=smooth, factor=factor)
+    
+    if name == SchedulerType.CONSTANT_STEP:
+        return schedule_func(optimizer, factor=factor, critical_step=critical_step)
 
     # All other schedulers require `num_training_steps`
     if num_training_steps is None:

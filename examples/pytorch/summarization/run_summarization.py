@@ -288,6 +288,7 @@ summarization_name_mapping = {
     "xsum": ("document", "summary"),
     "wiki_summary": ("article", "highlights"),
     "multi_news": ("document", "summary"),
+    "ccdv/arxiv-summarization": ("article", "abstract")
 }
 
 

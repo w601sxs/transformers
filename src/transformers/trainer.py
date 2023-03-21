@@ -1194,6 +1194,13 @@ class Trainer:
                 self.args.lr_scheduler_type,
                 optimizer=self.optimizer if optimizer is None else optimizer,
                 patience=self.args.patience, smooth=self.args.smooth, min_lr=self.args.min_lr, factor=self.args.factor)
+                
+            elif self.args.lr_scheduler_type == 'constant_step_lr':
+                self.lr_scheduler = get_scheduler(
+                self.args.lr_scheduler_type,
+                optimizer=self.optimizer if optimizer is None else optimizer,
+                factor=self.args.factor, critical_step=self.args.critical_step)
+                
             else:
                 self.lr_scheduler = get_scheduler(
                 self.args.lr_scheduler_type,
