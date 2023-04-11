@@ -1018,7 +1018,7 @@ class Trainer:
             pin_memory=self.args.dataloader_pin_memory,
         )
 
-    def create_optimizer_and_scheduler(self, num_training_steps: int):
+    def create_optimizer_and_scheduler(self, num_training_steps: int,**kwargs):
         """
         Setup the optimizer and the learning rate scheduler.
 
@@ -1032,7 +1032,7 @@ class Trainer:
             optimizer = self.optimizer.optimizer
         else:
             optimizer = self.optimizer
-        self.create_scheduler(num_training_steps=num_training_steps, optimizer=optimizer)
+        self.create_scheduler(num_training_steps=num_training_steps, optimizer=optimizer, **kwargs)
 
     def create_optimizer(self):
         """
@@ -1179,7 +1179,7 @@ class Trainer:
             raise ValueError(f"Trainer cannot instantiate unsupported optimizer: {args.optim}")
         return optimizer_cls, optimizer_kwargs
 
-    def create_scheduler(self, num_training_steps: int, optimizer: torch.optim.Optimizer = None):
+    def create_scheduler(self, num_training_steps: int, patience: int=10, factor: float=0.95, smooth:bool = True, min_lr:float = 1e-5, critical_step:int = -1,  optimizer: torch.optim.Optimizer = None):
         """
         Setup the scheduler. The optimizer of the trainer must have been set up either before this method is called or
         passed as an argument.
@@ -1195,7 +1195,8 @@ class Trainer:
                 optimizer=self.optimizer if optimizer is None else optimizer,
                 patience=self.args.patience, smooth=self.args.smooth, min_lr=self.args.min_lr, factor=self.args.factor)
                 
-            elif self.args.lr_scheduler_type == 'constant_step_lr':
+            elif self.args.lr_scheduler_type == 'constant_with_step':
+                print("Getting constant with step scheduler:",self.args.critical_step, self.args.factor)
                 self.lr_scheduler = get_scheduler(
                 self.args.lr_scheduler_type,
                 optimizer=self.optimizer if optimizer is None else optimizer,
@@ -1720,7 +1721,12 @@ class Trainer:
             self.optimizer = optimizer
             self.lr_scheduler = lr_scheduler
         elif not delay_optimizer_creation:
-            self.create_optimizer_and_scheduler(num_training_steps=max_steps)
+            if self.args.lr_scheduler_type=='greedy':
+                self.create_optimizer_and_scheduler(num_training_steps=max_steps, factor=self.args.factor, smooth=self.args.smooth, patience=self.args.patience, min_lr=self.args.min_lr)
+            elif self.args.lr_scheduler_type=='constant_with_step':
+                self.create_optimizer_and_scheduler(num_training_steps=max_steps, factor=self.args.factor, critical_step=self.args.critical_step)
+            else:
+                self.create_optimizer_and_scheduler(num_training_steps=max_steps)
 
         self.state = TrainerState()
         self.state.is_hyper_param_search = trial is not None

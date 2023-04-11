@@ -392,19 +392,13 @@ def get_scheduler(
         return schedule_func(optimizer)
 
     # All other schedulers require `num_warmup_steps`
-    if num_warmup_steps is None and name!=SchedulerType.GREEDY:
+    if num_warmup_steps is None and name!=SchedulerType.GREEDY and name != SchedulerType.CONSTANT_STEP:
         raise ValueError(f"{name} requires `num_warmup_steps`, please provide that argument.")
     
     elif name == SchedulerType.GREEDY:
         print(f"GreedyLR settings: patience={patience} smooth={smooth} min_lr={min_lr} factor={factor}")
         if patience is None or min_lr is None or smooth is None:
             raise ValueError(f"{name} requires `patience, min_lr and smooth`, please provide these arguments.")
-    
-    elif name == SchedulerType.CONSTANT_STEP:
-        print(f"Constant step settings: factor={factor} critical_step={critical_step}")
-        if factor is None or critical_step is None:
-            raise ValueError(f"{name} requires `factor and critical_step`, please provide these arguments. Values given are {factor} and {critical_step}")
-            
 
     if name == SchedulerType.CONSTANT_WITH_WARMUP:
         return schedule_func(optimizer, num_warmup_steps=num_warmup_steps)
@@ -416,6 +410,7 @@ def get_scheduler(
         return schedule_func(optimizer, patience=patience, min_lr=min_lr, smooth=smooth, factor=factor)
     
     if name == SchedulerType.CONSTANT_STEP:
+        print(f"Constant step settings: factor={factor} critical_step={critical_step}")
         return schedule_func(optimizer, factor=factor, critical_step=critical_step)
 
     # All other schedulers require `num_training_steps`
