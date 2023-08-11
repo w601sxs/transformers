@@ -49,8 +49,9 @@ from transformers import (
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version, send_example_telemetry
 from transformers.utils.versions import require_version
-
 from transformers.optimization import AdamW, get_scheduler
+
+from peft import get_peft_config, get_peft_model, LoraConfig, TaskType
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 check_min_version("4.27.0.dev0")
@@ -384,6 +385,18 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+    
+    ## Use PEFT (Parameter-Efficient Fine-Tuning)
+    print("Using PEFT...")
+    peft_config = LoraConfig(
+        task_type=TaskType.SEQ_2_SEQ_LM, 
+        inference_mode=False, 
+        r=8, 
+        lora_alpha=32, 
+        lora_dropout=0.1
+    )
+    model = get_peft_model(model, peft_config)
+    model.print_trainable_parameters()
 
     # We resize the embeddings only when necessary to avoid index errors. If you are creating a model from scratch
     # on a small vocab and want a smaller embedding size, remove this test.
