@@ -21,6 +21,7 @@ Fine-tuning the library models for sequence to sequence.
 import logging
 import os
 import sys
+import argparse
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -254,7 +255,20 @@ def main():
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-
+    
+#     # TODO: Parse custom args that HfArgumentParser doesn't recognize
+#     custom_parser = argparse.ArgumentParser()
+#     custom_parser.add_argument("--lora_r", type=int, default=8)
+#     custom_parser.add_argument("--lora_alpha", type=int, default=32)
+#     custom_parser.add_argument("--lora_dropout", type=float, default=0.1)
+#     custom_args, unknown = custom_parser.parse_known_args()
+#     print("custom args", custom_args)
+    
+#     # Remove custom arguments
+#     sys.argv = [arg for arg in sys.argv if arg not in unknown]
+#     print("system args", sys.argv)
+    
+    # Parse HF args
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
@@ -262,6 +276,7 @@ def main():
         model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+        
 
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
@@ -386,7 +401,7 @@ def main():
         use_auth_token=True if model_args.use_auth_token else None,
     )
     
-    ## Use PEFT (Parameter-Efficient Fine-Tuning)
+    # Use PEFT (Parameter-Efficient Fine-Tuning)
     print("Using PEFT...")
     peft_config = LoraConfig(
         task_type=TaskType.SEQ_2_SEQ_LM, 
@@ -395,8 +410,25 @@ def main():
         lora_alpha=32, 
         lora_dropout=0.1
     )
-    model = get_peft_model(model, peft_config)
+    
+    model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
+    
+    
+    #     # TODO: Parse custom args that HfArgumentParser doesn't recognize
+
+#     if model_args.config_name == 'lora':
+#         print("Fine-tuning with LoRA...")
+#         lora_config = LoraConfig(
+#             task_type=TaskType.SEQ_2_SEQ_LM, 
+#             inference_mode=False, 
+#             r=custom_args.lora_r, 
+#             lora_alpha=custom_args.lora_alpha, 
+#             lora_dropout=custom_args.lora_dropout
+#         )
+        
+#         model = get_peft_model(model, lora_config)
+#         model.print_trainable_parameters()
 
     # We resize the embeddings only when necessary to avoid index errors. If you are creating a model from scratch
     # on a small vocab and want a smaller embedding size, remove this test.
